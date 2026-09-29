@@ -118,6 +118,8 @@ open class SettingsRepository @Inject constructor(
         const val KEY_TG_BACKUP_CHAT_NAME = "tg_backup_chat_name"
         /** Power-off Telegram report (3.19): "true" = on, and its ReportField ids, comma separated. */
         const val KEY_TG_REPORT_OFF_ENABLED = "tg_report_off_enabled"
+        /** "true"/"false": mirror Yandex music onto the cluster music card (ClusterMusicBridge). */
+        const val KEY_CLUSTER_MUSIC_BRIDGE = "cluster_music_bridge_enabled"
         const val KEY_TG_REPORT_OFF_FIELDS = "tg_report_off_fields"
         /** One-shot flag: the odometer was added to a power-off choice saved before it existed. */
         const val KEY_TG_REPORT_ODOMETER_ADDED = "tg_report_odometer_added"
