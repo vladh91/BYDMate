@@ -16,7 +16,6 @@ object ClusterMusicCard {
     val SOURCE_PACKAGES = listOf("ru.yandex.yandexnavi", "ru.yandex.music")
 
     // PlaybackState.STATE_* as literals (android.jar members are stubs on the JVM).
-    private const val PB_STOPPED = 1
     private const val PB_PAUSED = 2
     private const val PB_PLAYING = 3
     private const val PB_BUFFERING = 6
