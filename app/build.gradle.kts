@@ -39,6 +39,13 @@ android {
     }
 
     signingConfigs {
+        // TEST-ONLY branch: a fixed key so each CI test build updates the previous one in place.
+        create("clustertest") {
+            storeFile = file("test-signing/clustertest.jks")
+            storePassword = "clustertest"
+            keyAlias = "clustertest"
+            keyPassword = "clustertest"
+        }
         if (keystorePropsFile.exists()) {
             create("release") {
                 storeFile = file(keystoreProps.getProperty("storeFile"))
@@ -54,6 +61,7 @@ android {
         debug {
             applicationIdSuffix = ".clustertest"
             versionNameSuffix = "-clustertest"
+            signingConfig = signingConfigs.getByName("clustertest")
         }
         release {
             signingConfig = signingConfigs.findByName("release")
