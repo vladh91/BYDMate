@@ -50,6 +50,11 @@ android {
     }
 
     buildTypes {
+        // TEST-ONLY branch: installs next to the release build.
+        debug {
+            applicationIdSuffix = ".clustertest"
+            versionNameSuffix = "-clustertest"
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
