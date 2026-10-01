@@ -11,6 +11,11 @@ import com.bydmate.app.media.ClusterMusicCard.Target
  * card came back with a non-negative status, and [dirty] says the cluster may hold our text
  * (anything was attempted since the last confirmed clear). A failed clear therefore stays owed
  * and is retried on the next step, up to [MAX_CLEAR_ATTEMPTS].
+ *
+ * A car that refuses a required fid (negative status) [MAX_WRITE_REFUSALS] times in a row turns
+ * the card off until the process restarts ([refused]), so it can't flood the diagnostics log. An
+ * unreachable helper (null) is not a refusal: the daemon may still be starting, so those writes
+ * keep being retried, but only the first failure of a streak is reported.
  */
 class ClusterMusicSync(private val port: Port) {
 
@@ -20,8 +25,11 @@ class ClusterMusicSync(private val port: Port) {
         suspend fun writeBuffer(dev: Int, fid: Int, bytes: ByteArray): Int?
     }
 
-    /** What a [step] did, for the bridge's log and trace. */
-    enum class Outcome { NONE, SHOWN, REASSERTED, TICKED, WRITE_FAILED, ABORTED, CLEARED, CLEAR_FAILED, CLEAR_GAVE_UP, HANDED_OFF }
+    /** What a [step] did, for the bridge's log and trace. [RETRYING] and [NONE] are not reported. */
+    enum class Outcome {
+        NONE, SHOWN, REASSERTED, TICKED, WRITE_FAILED, RETRYING, REFUSED, ABORTED,
+        CLEARED, CLEAR_FAILED, CLEAR_GAVE_UP, HANDED_OFF,
+    }
 
     /** Last card the cluster confirmed; null when nothing of ours is known to be there. */
     var shown: Card? = null
@@ -31,10 +39,15 @@ class ClusterMusicSync(private val port: Port) {
     var dirty = false
         private set
 
+    /** True once the car refused the card [MAX_WRITE_REFUSALS] times: off until the process restarts. */
+    var refused = false
+        private set
+
     private var lastWriteAt = 0L
     private var progressSent: Int? = null
-    private var playedSent: Triple<Int, Int, Int>? = null
     private var clearAttempts = 0
+    private var refusals = 0
+    private var failing = false
 
     /**
      * One poll. [wanted] is the switch; [fids] null means this firmware can't take the card, so
@@ -48,10 +61,11 @@ class ClusterMusicSync(private val port: Port) {
         nowMs: Long,
         stillWanted: () -> Boolean = { true },
     ): Outcome {
-        if (fids == null) return Outcome.NONE
+        if (fids == null || refused) return Outcome.NONE
         if (!wanted) return if (dirty) clear(fids) else Outcome.NONE
         return when (target) {
-            is Target.OtherPlaying -> handOff()
+            // Another app plays: the stock controller rewrites the card on the focus change. Ours is gone.
+            is Target.OtherPlaying -> if (dirty || shown != null) Outcome.HANDED_OFF.also { forget() } else Outcome.NONE
             Target.Idle -> if (dirty) clear(fids) else Outcome.NONE
             is Target.Show -> show(fids, target.card, nowMs, stillWanted)
         }
@@ -67,16 +81,8 @@ class ClusterMusicSync(private val port: Port) {
         return clear(fids)
     }
 
-    /** Another app plays: the stock controller rewrites the card on the focus change. Ours is gone. */
-    private fun handOff(): Outcome {
-        if (!dirty && shown == null) return Outcome.NONE
-        forget()
-        return Outcome.HANDED_OFF
-    }
-
     private suspend fun show(fids: ClusterMusicFids, card: Card, nowMs: Long, stillWanted: () -> Boolean): Outcome {
-        val current = shown
-        val newTrack = current?.steady() != card.steady()
+        val newTrack = shown?.steady() != card.steady()
         if (newTrack || nowMs - lastWriteAt >= REASSERT_MS) {
             val outcome = writeCard(fids, card, newTrack, stillWanted)
             if (outcome != Outcome.SHOWN) return outcome
@@ -93,63 +99,57 @@ class ClusterMusicSync(private val port: Port) {
 
     private suspend fun writeCard(fids: ClusterMusicFids, card: Card, newTrack: Boolean, stillWanted: () -> Boolean): Outcome {
         dirty = true
-        val writes = buildList<suspend () -> Boolean> {
-            add { ok(port.writeInt(fids.instrumentDev, fids.source, ClusterMusicCard.SOURCE_THIRD_PARTY)) }
-            add { ok(port.writeInt(fids.instrumentDev, fids.state, card.musicState)) }
-            add { ok(port.writeBuffer(fids.instrumentDev, fids.info, ClusterMusicCard.encode(card.title))) }
+        val writes = buildList<suspend () -> Int?> {
+            add { port.writeInt(fids.instrumentDev, fids.source, ClusterMusicCard.SOURCE_THIRD_PARTY) }
+            add { port.writeInt(fids.instrumentDev, fids.state, card.musicState) }
+            add { port.writeBuffer(fids.instrumentDev, fids.info, ClusterMusicCard.encode(card.title)) }
         }
         for (write in writes) {
             if (!stillWanted()) { shown = null; return Outcome.ABORTED }
-            if (!write()) { shown = null; return Outcome.WRITE_FAILED }
+            val status = write()
+            if (!ok(status)) return failed(status)
         }
+        refusals = 0
+        failing = false
         // Optional fids: best effort, a failure doesn't hold the card back.
         if (stillWanted()) writeSinger(fids, card.artist)
-        if (newTrack && stillWanted()) resetTrackExtras(fids, card)
+        if (newTrack && stillWanted()) {
+            // A new track starts from a clean bar: unknown progress is written as zero, so the
+            // previous track's bar never lingers.
+            progressSent = null
+            fids.progress?.let { if (ok(port.writeInt(fids.instrumentDev, it, card.progress ?: 0))) progressSent = card.progress ?: 0 }
+        }
         if (!stillWanted()) { shown = null; return Outcome.ABORTED }
         shown = card
         clearAttempts = 0
         return Outcome.SHOWN
     }
 
-    /**
-     * A new track starts from a clean bar and clock: unknown progress or duration are written as
-     * zero, so the previous track's bar and time never linger.
-     */
-    private suspend fun resetTrackExtras(fids: ClusterMusicFids, card: Card) {
-        progressSent = null
-        playedSent = null
-        fids.progress?.let { if (ok(port.writeInt(fids.instrumentDev, it, card.progress ?: 0))) progressSent = card.progress ?: 0 }
-        val audio = fids.audioDev ?: return
-        fids.totalTime?.let { writeHms(audio, it, ClusterMusicCard.hms(card.durationSec ?: 0)) }
-        fids.playTime?.let { if (writeHms(audio, it, ClusterMusicCard.hms(card.positionSec ?: 0))) playedSent = ClusterMusicCard.hms(card.positionSec ?: 0) }
-    }
-
-    /** Progress and played time as they move; a failed write is simply retried next tick. */
-    private suspend fun tick(fids: ClusterMusicFids, card: Card): Boolean {
-        var wrote = false
-        val progress = card.progress
-        if (progress != null && progress != progressSent && fids.progress != null) {
-            if (ok(port.writeInt(fids.instrumentDev, fids.progress, progress))) progressSent = progress
-            wrote = true
-        }
-        val position = card.positionSec
-        val audio = fids.audioDev
-        if (position != null && audio != null && fids.playTime != null) {
-            val played = ClusterMusicCard.hms(position)
-            val last = playedSent
-            if (played != last) {
-                var allOk = true
-                if (played.first != last?.first) allOk = ok(port.writeInt(audio, fids.playTime[0], played.first)) && allOk
-                if (played.second != last?.second) allOk = ok(port.writeInt(audio, fids.playTime[1], played.second)) && allOk
-                if (played.third != last?.third) allOk = ok(port.writeInt(audio, fids.playTime[2], played.third)) && allOk
-                playedSent = if (allOk) played else null
-                wrote = true
+    /** A required write failed: count refusals toward [refused], report only a streak's first failure. */
+    private fun failed(status: Int?): Outcome {
+        shown = null
+        if (status != null) {
+            refusals++
+            if (refusals >= MAX_WRITE_REFUSALS) {
+                refused = true
+                return Outcome.REFUSED
             }
         }
-        return wrote
+        if (failing) return Outcome.RETRYING
+        failing = true
+        return Outcome.WRITE_FAILED
     }
 
-    /** What the stock sender sends when a source goes away: stopped, blank name and singer, zeroed extras. */
+    /** The bar as it moves; a failed write is simply retried next tick. */
+    private suspend fun tick(fids: ClusterMusicFids, card: Card): Boolean {
+        val progress = card.progress ?: return false
+        val fid = fids.progress ?: return false
+        if (progress == progressSent) return false
+        if (ok(port.writeInt(fids.instrumentDev, fid, progress))) progressSent = progress
+        return true
+    }
+
+    /** What the stock sender sends when a source goes away: stopped, blank name and singer, empty bar. */
     private suspend fun clear(fids: ClusterMusicFids): Outcome {
         if (clearAttempts >= MAX_CLEAR_ATTEMPTS) return Outcome.NONE
         clearAttempts++
@@ -157,10 +157,6 @@ class ClusterMusicSync(private val port: Port) {
             ok(port.writeBuffer(fids.instrumentDev, fids.info, ClusterMusicCard.encode("")))
         writeSinger(fids, "")
         fids.progress?.let { port.writeInt(fids.instrumentDev, it, 0) }
-        fids.audioDev?.let { audio ->
-            fids.playTime?.let { writeHms(audio, it, Triple(0, 0, 0)) }
-            fids.totalTime?.let { writeHms(audio, it, Triple(0, 0, 0)) }
-        }
         if (required) {
             forget()
             return Outcome.CLEARED
@@ -174,27 +170,24 @@ class ClusterMusicSync(private val port: Port) {
         port.writeBuffer(audio, singer, ClusterMusicCard.encode(artist))
     }
 
-    private suspend fun writeHms(dev: Int, fids: List<Int>, hms: Triple<Int, Int, Int>): Boolean =
-        ok(port.writeInt(dev, fids[0], hms.first)) and
-            ok(port.writeInt(dev, fids[1], hms.second)) and
-            ok(port.writeInt(dev, fids[2], hms.third))
-
     private fun forget() {
         shown = null
         dirty = false
         progressSent = null
-        playedSent = null
         clearAttempts = 0
     }
-
-    private fun ok(status: Int?): Boolean = status != null && status >= 0
 
     companion object {
         const val REASSERT_MS = 10_000L
         /** ~30 s of polls; after that the clear is dropped and logged instead of hammering a dead helper. */
         const val MAX_CLEAR_ATTEMPTS = 20
+        /** Refused required writes in a row before the card is off until restart. */
+        const val MAX_WRITE_REFUSALS = 3
     }
 }
+
+/** A helper write landed: status 1 real, 0 no-op; negative is an error, null the daemon unreachable. */
+private fun ok(status: Int?): Boolean = status != null && status >= 0
 
 /**
  * When the bridge re-arms notification-listener access: once when the switch is turned on, and
