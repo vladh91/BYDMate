@@ -2,7 +2,6 @@ package com.bydmate.app.media
 
 import android.content.ComponentName
 import android.content.Context
-import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
@@ -32,8 +31,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Mirrors Yandex Navigator's Alice music and Yandex Music onto the instrument cluster's music card,
- * which the stock controller leaves blank for them. It writes the fids the stock MediaInfoSender
+ * Mirrors the track of any player the stock controller leaves out (Yandex Navigator's Alice music,
+ * Yandex Music, Spotify, internet radio...) onto the instrument cluster's music card, which it
+ * leaves blank for them. It writes the fids the stock MediaInfoSender
  * writes for whitelisted apps, resolved from this firmware's catalog ([ClusterMusicFids]), through
  * the shell-uid helper: the app uid is refused these writes, as for
  * [com.bydmate.app.hud.HudCanChannel]'s road name.
@@ -70,17 +70,13 @@ class ClusterMusicBridge @Inject constructor(
     @Volatile private var job: Job? = null
     @Volatile private var ensureAccess: (suspend (String) -> Unit)? = null
     private val access = ClusterMusicAccess(ACCESS_RETRY_MS)
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-
-    /** BYD's `AudioManager.getCurrentAudioFocusPackage()`, absent from stock Android; null when missing. */
-    private val focusPackageMethod = runCatching { AudioManager::class.java.getMethod("getCurrentAudioFocusPackage") }
-        .onFailure { Log.w(TAG, "no getCurrentAudioFocusPackage on this firmware, deciding by sessions only") }
-        .getOrNull()
-    private var lastFocusPackage: String? = null
     private var wasEnabled = false
     private var lastFids: ClusterMusicFids? = null
     private var fidsLogged = false
     private var lastTargetKind: String? = null
+
+    /** The package the last poll gave the card to; it keeps the card while nobody plays. */
+    private var lastOwner: String? = null
 
     /**
      * [ensureAccess] re-arms notification-listener access (TrackingService's GrantSelfHeal); it runs
@@ -108,10 +104,12 @@ class ClusterMusicBridge @Inject constructor(
             running.cancelAndJoin()
             val outcome = withTimeoutOrNull(STOP_CLEAR_TIMEOUT_MS) {
                 mutex.withLock {
-                    var result = sync.release(lastFids)
+                    // The owner is read again before every attempt: another player may take
+                    // the card while a failed clear waits for its retry.
+                    var result = sync.release(lastFids, ownerBeforeClear())
                     while (result == Outcome.CLEAR_FAILED) {
                         delay(POLL_MS)
-                        result = sync.release(lastFids)
+                        result = sync.release(lastFids, ownerBeforeClear())
                     }
                     wasEnabled = false
                     access.onSwitch(false)
@@ -134,12 +132,12 @@ class ClusterMusicBridge @Inject constructor(
         if (access.onSwitch(enabled)) ensureAccess?.invoke("cluster-music on")
         val fids = resolveFids()
         if (!enabled) {
-            report(sync.step(false, fids, Target.Idle, SystemClock.elapsedRealtime()), null)
+            report(sync.step(false, fids, ownerBeforeClear(), SystemClock.elapsedRealtime()), null)
             return
         }
         val target = readTarget() ?: return
         val kind = when (target) {
-            is Target.Show -> "show"
+            is Target.Show -> "show:${target.packageName}"
             is Target.OtherPlaying -> "other:${target.packageName}"
             Target.Idle -> "idle"
         }
@@ -169,13 +167,28 @@ class ClusterMusicBridge @Inject constructor(
         return fids
     }
 
-    /** Null when the sessions can't be read: without listener access the poll decides nothing. */
-    private suspend fun readTarget(): Target? {
+    /**
+     * Who owns playback right before a clear of ours (switch off, stop): another player that took
+     * the card since the last poll keeps it. Unreadable sessions fall back to [Target.Idle], a clear.
+     */
+    private suspend fun ownerBeforeClear(): Target {
+        if (!sync.dirty) return Target.Idle
+        return runCatching { readTarget(rearm = false) }.onFailure {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "owner read before clear failed: ${it.javaClass.simpleName}")
+        }.getOrNull() ?: Target.Idle
+    }
+
+    /**
+     * Null when the sessions can't be read: without listener access the poll decides nothing.
+     * [rearm] false (the feature is off or stopping) skips re-arming the access.
+     */
+    private suspend fun readTarget(rearm: Boolean = true): Target? {
         val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         val controllers = try {
             msm.getActiveSessions(ComponentName(context, MediaSessionListenerService::class.java))
         } catch (e: SecurityException) {
-            if (access.onRefused(SystemClock.elapsedRealtime())) {
+            if (rearm && access.onRefused(SystemClock.elapsedRealtime())) {
                 Log.w(TAG, "no notification-listener access, re-arming: ${e.message}")
                 Trace.event(TraceArea.CAR, "cluster_music", "access" to "missing")
                 ensureAccess?.invoke("cluster-music no access")
@@ -202,20 +215,13 @@ class ClusterMusicBridge @Inject constructor(
                 durationMs = md?.getLong(MediaMetadata.METADATA_KEY_DURATION),
             )
         }
-        return ClusterMusicCard.decide(sessions, focusPackage())
-    }
-
-    /** The audio-focus owner, the stock controller's own signal; null when this firmware can't say. */
-    private fun focusPackage(): String? {
-        val method = focusPackageMethod ?: return null
-        val focus = runCatching { method.invoke(audioManager) as? String }
-            .onFailure { Log.w(TAG, "getCurrentAudioFocusPackage failed: ${it.message}") }
-            .getOrNull()
-        if (focus != lastFocusPackage) {
-            Log.i(TAG, "focus ${focus?.ifEmpty { "none" }}")
-            lastFocusPackage = focus
+        val target = ClusterMusicCard.decide(sessions, lastOwner)
+        when (target) {
+            is Target.Show -> lastOwner = target.packageName
+            is Target.OtherPlaying -> lastOwner = target.packageName
+            Target.Idle -> Unit
         }
-        return focus
+        return target
     }
 
     private fun report(outcome: Outcome, target: Target?, reason: String? = null) {

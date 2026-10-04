@@ -79,8 +79,8 @@
     <!-- Volume knob on the steering wheel: play/pause instead of audio-source switch -->
     <string name="settings_knob_play_pause_title">Botão giratório de volume no volante</string>
     <string name="settings_knob_play_pause_desc">Pressionar pausa e retoma a reprodução em vez de trocar a fonte de áudio. Necessário após a atualização de firmware em que o toque passou a mudar a fonte.</string>
-    <string name="settings_cluster_music_card_title">Faixa do Yandex no painel</string>
-    <string name="settings_cluster_music_card_desc">Mostra o título e o artista do Yandex Navigator (Alice) e do Yandex Music no cartão de música do painel de instrumentos. O firmware de fábrica só o preenche para os próprios reprodutores e Bluetooth.</string>
+    <string name="settings_cluster_music_card_title">Faixa no painel</string>
+    <string name="settings_cluster_music_card_desc">Mostra o título e o artista no cartão de música do painel de instrumentos para os reprodutores que o firmware de fábrica ignora: Yandex Navigator (Alice), Yandex Music, Spotify, rádio pela internet e outros. Para os próprios reprodutores e o Bluetooth, o firmware preenche-o sozinho.</string>
 
     <!-- ADB restore after reboot (firmwares 2606+) -->
     <string name="settings_adb_restore_title">Restaurar o ADB após reiniciar</string>
@@ -452,6 +452,11 @@
     <string name="automation_action_dplus_command">Comando do veículo</string>
     <string name="automation_action_notification">Notificação</string>
     <string name="automation_action_app_launch">Abrir aplicativo</string>
+    <string name="automation_action_app_close">Fechar aplicativo</string>
+    <string name="automation_action_app_close_hint">O aplicativo fecha por completo. Uma rota ou música não salva nele será perdida.</string>
+    <string name="automation_action_media_play">Mídia: tocar</string>
+    <string name="automation_action_media_pause">Mídia: pausar</string>
+    <string name="automation_action_media_key_hint">Funciona quando um player já está aberto: para abri-lo, coloque “Abrir aplicativo” antes desta etapa.</string>
     <string name="automation_action_yandex_music">Yandex Music</string>
     <string name="automation_action_call">Ligar</string>
     <string name="automation_action_navigate">Rota no Y.Navigator</string>
@@ -879,7 +884,7 @@
     <string name="settings_fid_dump_button">Salvar catálogo de fids</string>
     <string name="settings_fid_dump_desc">Nomes e valores das constantes do SDK. Apenas identificadores técnicos: sem VIN, sem localização, sem dados pessoais</string>
     <string name="settings_hud_check_title">Teste do HUD</string>
-    <string name="settings_hud_check_desc">Um minuto e meio de indicações de teste no para-brisa. Primeiro ative a gravação de logs e filme o para-brisa. Carro parado, sem rota. No para-brisa aparecem textos de teste “BYDMATE 1”, “BYDMATE 2” e “BYDMATE 3”, que somem no fim da verificação</string>
+    <string name="settings_hud_check_desc">Um minuto e meio de indicações de teste no para-brisa. Carro parado, rota no navegador encerrada. Primeiro ative a gravação de logs. No para-brisa aparecem, um após o outro, os números 111, 222, 333 e 444. No fim o aplicativo pergunta o que você viu e escolhe o método sozinho. Tudo some no fim da verificação</string>
     <string name="settings_hud_check_button">Iniciar</string>
     <string name="settings_hud_check_preparing">Preparando o teste</string>
     <string name="settings_hud_check_step">Passo %1$d de %2$d, olhe para o para-brisa</string>
@@ -889,6 +894,12 @@
     <string name="settings_hud_check_refused_guidance">Primeiro encerre a rota no navegador</string>
     <string name="settings_hud_check_refused_moving">Pare o carro, o teste só funciona com o carro parado</string>
     <string name="settings_hud_check_refused_no_link">Sem conexão com o carro, o teste não foi iniciado</string>
+    <string name="settings_hud_check_notice_refused_title">Teste não iniciado</string>
+    <string name="settings_hud_check_notice_interrupted_title">Teste interrompido</string>
+    <string name="settings_hud_check_notice_guidance">Há uma rota em andamento no navegador. Encerre-a e inicie o teste novamente.</string>
+    <string name="settings_hud_check_notice_moving">O carro está em movimento. Pare e inicie o teste novamente.</string>
+    <string name="settings_hud_check_notice_route_started">Uma rota começou durante o teste. Encerre-a e inicie o teste novamente.</string>
+    <string name="settings_hud_check_notice_ok">Entendi</string>
     <string name="settings_fid_dump_saved">Salvo: %1$s</string>
     <string name="settings_fid_dump_in_progress">Lendo os fids...</string>
     <string name="settings_fid_dump_empty">O catálogo de fids está vazio neste firmware</string>
@@ -1126,6 +1137,7 @@
     <string name="auto_msg_url_no_scheme">Ação nº %1$d: a URL deve conter um esquema (http://, yandexmusic://, tel:, ...)</string>
     <string name="auto_msg_ymusic_mode_missing">Ação nº %1$d: modo do Yandex Music não selecionado</string>
     <string name="auto_msg_sentry_invalid">Ação nº %1$d: estado do modo sentinela inválido</string>
+    <string name="auto_msg_media_key_invalid">Ação nº %1$d: escolha tocar ou pausar</string>
     <string name="auto_msg_hotspot_invalid">Ação nº %1$d: estado do ponto de acesso inválido</string>
     <string name="auto_msg_speak_text_empty">Ação nº %1$d: texto para fala não definido</string>
     <string name="auto_msg_agent_query_prompt_empty">Ação nº %1$d: consulta ao agente não definida</string>
@@ -1404,11 +1416,23 @@
     <string name="settings_hud_status_on">Transmissão para o HUD ativa</string>
     <string name="settings_hud_status_bind_failed">Falha ao conectar ao barramento SOME/IP</string>
     <string name="settings_hud_hint">Requer versão com head-up display. Os dados vêm da janela do Yandex Navigator</string>
-    <string name="settings_hud_mode_title">Modo do HUD</string>
-    <string name="settings_hud_mode_1">Modo 1</string>
-    <string name="settings_hud_mode_2">Modo 2</string>
-    <string name="settings_hud_mode_1_desc">Modo 1. As indicações vão para o para-brisa, o aplicativo não mexe no painel de instrumentos.</string>
-    <string name="settings_hud_mode_2_desc">Modo 2. Durante a rota o carro entra no modo de navegação. Experimente se no modo 1 o para-brisa fica vazio. O painel mostrará uma seta, aplicativos e câmeras no painel podem não aparecer.</string>
+    <string name="settings_hud_mode_title">Método de exibição no para-brisa</string>
+    <string name="settings_hud_mode_1">Método 1</string>
+    <string name="settings_hud_mode_2">Método 2</string>
+    <string name="settings_hud_mode_1_desc">Método 1. As indicações vão para o para-brisa, o aplicativo não mexe no painel de instrumentos.</string>
+    <string name="settings_hud_mode_2_desc">Método 2. As indicações vão para o para-brisa e para o painel: lá aparece um cartão de navegação com a seta, os metros e a rua.</string>
+    <string name="settings_hud_mode_3">Método 3</string>
+    <string name="settings_hud_mode_3_desc">Método 3. Como o método 2, e por mais um caminho. Experimente se os dois primeiros não mostraram nada.</string>
+    <string name="settings_hud_mode_trial">teste</string>
+    <string name="settings_hud_mode_pick_hint">Não sabe qual escolher? Rode o “Teste do HUD”.</string>
+    <string name="settings_hud_answer_title">Qual número você viu no para-brisa?</string>
+    <string name="settings_hud_answer_text">O aplicativo escolhe o método sozinho. Se viu vários números, toque no menor.</string>
+    <string name="settings_hud_answer_none">Nada</string>
+    <string name="settings_hud_answer_chosen_title">Método %1$d escolhido</string>
+    <string name="settings_hud_answer_chosen_text">As indicações vão para o para-brisa por este método. Dá para mudar nas configurações do HUD.</string>
+    <string name="settings_hud_answer_nothing_title">O para-brisa não mostrou nada</string>
+    <string name="settings_hud_answer_nothing_text">Nenhum dos métodos funcionou no para-brisa deste carro. Grave um log e envie para nós, vamos analisar.</string>
+    <string name="settings_hud_answer_done">Pronto</string>
     <!-- Blind-spot cameras -->
     <string name="settings_blindspot_header">Pontos cegos</string>
     <string name="settings_blindspot_title">Câmera pela seta</string>
@@ -1698,6 +1722,11 @@
     <string name="dispatch_volume_invalid">Nível de volume inválido: %1$s</string>
     <string name="dispatch_package_missing">packageName não definido</string>
     <string name="dispatch_app_not_installed">Aplicativo não instalado: %1$s</string>
+    <string name="dispatch_app_close_self">O BYDMate não fecha a si mesmo</string>
+    <string name="dispatch_app_close_failed">Não foi possível fechar o aplicativo: %1$s</string>
+    <string name="dispatch_media_no_session">Nenhum player aberto</string>
+    <string name="dispatch_media_key_invalid">Comando de player desconhecido</string>
+    <string name="dispatch_media_key_failed">O player não aceitou o comando: %1$s</string>
     <string name="dispatch_phone_missing">phone não definido</string>
     <string name="dispatch_dgis_fallback">2GIS não está instalado, foi aberto o Yandex Navigator</string>
     <string name="dispatch_maps_fallback">Yandex Maps não está instalado, foi aberto o Yandex Navigator</string>
@@ -1751,6 +1780,7 @@
     <string name="tg_report_trip_now">Viagem</string>
     <string name="tg_report_trip_last">Última viagem</string>
     <string name="tg_report_trip_when">%1$s às %2$s</string>
+    <string name="tg_report_counter_since">desde %1$s</string>
     <string name="tg_report_trip_distance_time">%1$s em %2$s</string>
     <string name="tg_report_trip_km">%1$.1f km</string>
     <string name="tg_report_trip_km_whole">%1$d km</string>
@@ -1784,6 +1814,8 @@
     <string name="tg_report_field_range_desc">Quilômetros, como na tela inicial</string>
     <string name="tg_report_field_odometer_desc">Quilometragem total do carro</string>
     <string name="tg_report_field_trip_desc">Quilômetros, consumo e tempo de viagem</string>
+    <string name="tg_report_field_trip1_desc">Contador TRIP 1 do Painel: quilômetros, tempo de viagem e consumo</string>
+    <string name="tg_report_field_trip2_desc">Contador TRIP 2 do Painel: quilômetros, tempo de viagem e consumo</string>
     <string name="tg_report_field_temps_desc">Lado de fora e na cabine</string>
     <string name="tg_report_field_openings_desc">Portas, janelas, teto solar, porta-malas, capô</string>
     <string name="tg_report_field_tires_desc">As quatro rodas</string>

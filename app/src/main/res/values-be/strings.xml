@@ -82,8 +82,8 @@
     <!-- Volume knob on the steering wheel: play/pause instead of audio-source switch -->
     <string name="settings_knob_play_pause_title">Кола гучнасці на рулі</string>
     <string name="settings_knob_play_pause_desc">Націсканне ставіць на паўзу і працягвае прайграванне, а не пераключае крыніцу гуку. Патрэбна пасля абнаўлення прашыўкі, дзе націсканне стала мяняць крыніцу.</string>
-    <string name="settings_cluster_music_card_title">Трэк Яндэкса на прыборцы</string>
-    <string name="settings_cluster_music_card_desc">Паказвае назву і выканаўцу з Яндэкс Навігатара (Аліса) і Яндэкс Музыкі ў картцы музыкі на прыборцы. Штатная прашыўка запаўняе яе толькі для сваіх плэераў і Bluetooth.</string>
+    <string name="settings_cluster_music_card_title">Трэк на прыборцы</string>
+    <string name="settings_cluster_music_card_desc">Паказвае назву і выканаўцу ў картцы музыкі на прыборцы для плэераў, якія штатная прашыўка прапускае: Яндэкс Навігатар (Аліса), Яндэкс Музыка, Spotify, інтэрнэт-радыё і іншыя. Свае плэеры і Bluetooth прашыўка запаўняе сама.</string>
 
     <!-- ADB restore after reboot (firmwares 2606+) -->
     <string name="settings_adb_restore_title">Аднаўляць ADB пасля перазагрузкі</string>
@@ -516,6 +516,11 @@
     <string name="automation_action_dplus_command">Каманда аўтамабілю</string>
     <string name="automation_action_notification">Апавяшчэнне</string>
     <string name="automation_action_app_launch">Запуск праграмы</string>
+    <string name="automation_action_app_close">Закрыць праграму</string>
+    <string name="automation_action_app_close_hint">Праграма закрыецца цалкам. Маршрут або музыка, якія ў ёй не захаваны, знікнуць.</string>
+    <string name="automation_action_media_play">Медыя: прайграць</string>
+    <string name="automation_action_media_pause">Медыя: паўза</string>
+    <string name="automation_action_media_key_hint">Спрацуе, калі плэер ужо запушчаны: каб яго запусціць, пастаўце перад гэтым крокам «Запуск праграмы».</string>
     <string name="automation_action_yandex_music">Яндэкс.Музыка</string>
     <string name="automation_action_call">Званок</string>
     <string name="automation_action_navigate">Маршрут у Я.Навігатары</string>
@@ -1037,7 +1042,7 @@
     <string name="settings_fid_dump_button">Захаваць каталог fid\'аў</string>
     <string name="settings_fid_dump_desc">Імёны і значэнні канстант SDK. Толькі тэхнічныя ідэнтыфікатары: без VIN, без геалакацыі, без асабістых даных</string>
     <string name="settings_hud_check_title">Праверка HUD</string>
-    <string name="settings_hud_check_desc">Паўтары хвіліны тэставых падказак на шкле. Спачатку ўключыце запіс логаў і здымайце шкло на відэа. Машына стаіць, маршрут не патрэбны. На шкле будуць тэставыя надпісы «BYDMATE 1», «BYDMATE 2» і «BYDMATE 3», пасля праверкі яны знікнуць</string>
+    <string name="settings_hud_check_desc">Паўтары хвіліны тэставых падказак на шкле. Машына стаіць, маршрут у навігатары завершаны. Спачатку ўключыце запіс логаў. На шкле па чарзе з\'явяцца лікі 111, 222, 333 і 444. У канцы праграма спытае, што вы бачылі, і сама выбера спосаб. Пасля праверкі ўсё знікне</string>
     <string name="settings_hud_check_button">Запусціць</string>
     <string name="settings_hud_check_preparing">Рыхтуем праверку</string>
     <string name="settings_hud_check_step">Крок %1$d з %2$d, глядзіце на шкло</string>
@@ -1047,6 +1052,12 @@
     <string name="settings_hud_check_refused_guidance">Спачатку завяршыце маршрут у навігатары</string>
     <string name="settings_hud_check_refused_moving">Спыніце машыну, праверка ідзе толькі на месцы</string>
     <string name="settings_hud_check_refused_no_link">Няма сувязі з машынай, праверка не запушчана</string>
+    <string name="settings_hud_check_notice_refused_title">Праверка не запушчана</string>
+    <string name="settings_hud_check_notice_interrupted_title">Праверка перапынена</string>
+    <string name="settings_hud_check_notice_guidance">У навігатары ідзе маршрут. Завяршыце яго і запусціце праверку яшчэ раз.</string>
+    <string name="settings_hud_check_notice_moving">Машына едзе. Спыніцеся і запусціце праверку яшчэ раз.</string>
+    <string name="settings_hud_check_notice_route_started">Падчас праверкі пачаўся маршрут. Завяршыце яго і запусціце праверку яшчэ раз.</string>
+    <string name="settings_hud_check_notice_ok">Зразумела</string>
     <!-- %1$s = file name -->
     <string name="settings_fid_dump_saved">Захавана: %1$s</string>
     <string name="settings_fid_dump_in_progress">Чытанне fid\'аў...</string>
@@ -1285,6 +1296,7 @@
     <string name="auto_msg_url_no_scheme">Дзеянне #%1$d: URL павінен змяшчаць схему (http://, yandexmusic://, tel:, ...)</string>
     <string name="auto_msg_ymusic_mode_missing">Дзеянне #%1$d: рэжым Я.Музыкі не выбраны</string>
     <string name="auto_msg_sentry_invalid">Дзеянне #%1$d: некарэктны стан ахоўнага рэжыму</string>
+    <string name="auto_msg_media_key_invalid">Дзеянне #%1$d: выберыце «прайграць» або «паўза»</string>
     <string name="auto_msg_hotspot_invalid">Дзеянне #%1$d: некарэктны стан пункта доступу</string>
     <string name="auto_msg_speak_text_empty">Дзеянне #%1$d: не зададзены тэкст для агучкі</string>
     <string name="auto_msg_agent_query_prompt_empty">Дзеянне #%1$d: не зададзены запыт агенту</string>
@@ -1560,11 +1572,23 @@
     <string name="settings_hud_status_on">Перадача на HUD актыўная</string>
     <string name="settings_hud_status_bind_failed">Не ўдалося падключыцца да шыны SOME/IP</string>
     <string name="settings_hud_hint">Патрэбна камплектацыя з праекцыйным дысплеем. Даныя бяруцца з акна Яндэкс Навігатара</string>
-    <string name="settings_hud_mode_title">Рэжым HUD</string>
-    <string name="settings_hud_mode_1">Рэжым 1</string>
-    <string name="settings_hud_mode_2">Рэжым 2</string>
-    <string name="settings_hud_mode_1_desc">Рэжым 1. Падказкі ідуць на шкло, прыборку праграма не кранае.</string>
-    <string name="settings_hud_mode_2_desc">Рэжым 2. На час маршруту машына пераходзіць у рэжым навігацыі. Паспрабуйце, калі ў рэжыме 1 шкло пустое. На прыборцы з\'явіцца стрэлка, праграмы і камеры на прыборцы могуць не паказвацца.</string>
+    <string name="settings_hud_mode_title">Спосаб вываду на шкло</string>
+    <string name="settings_hud_mode_1">Спосаб 1</string>
+    <string name="settings_hud_mode_2">Спосаб 2</string>
+    <string name="settings_hud_mode_1_desc">Спосаб 1. Падказкі ідуць на шкло, прыборку праграма не кранае.</string>
+    <string name="settings_hud_mode_2_desc">Спосаб 2. Падказкі ідуць і на шкло, і на прыборку: там з\'явіцца картка навігацыі са стрэлкай, метрамі і вуліцай.</string>
+    <string name="settings_hud_mode_3">Спосаб 3</string>
+    <string name="settings_hud_mode_3_desc">Спосаб 3. Як спосаб 2, і яшчэ адным шляхам. Паспрабуйце, калі першыя два нічога не паказалі.</string>
+    <string name="settings_hud_mode_trial">пробны</string>
+    <string name="settings_hud_mode_pick_hint">Не ведаеце, які выбраць? Запусціце «Праверку HUD».</string>
+    <string name="settings_hud_answer_title">Які лік вы ўбачылі на шкле?</string>
+    <string name="settings_hud_answer_text">Праграма сама выбера спосаб. Калі бачылі некалькі лікаў, націсніце меншы.</string>
+    <string name="settings_hud_answer_none">Нічога</string>
+    <string name="settings_hud_answer_chosen_title">Выбраны спосаб %1$d</string>
+    <string name="settings_hud_answer_chosen_text">Падказкі пойдуць на шкло гэтым спосабам. Змяніць яго можна ў наладах HUD.</string>
+    <string name="settings_hud_answer_nothing_title">Шкло нічога не паказала</string>
+    <string name="settings_hud_answer_nothing_text">Ніводзін са спосабаў не спрацаваў на шкле гэтай машыны. Запішыце лог і дашліце яго нам, мы разбярэмся.</string>
+    <string name="settings_hud_answer_done">Гатова</string>
     <!-- Blind-spot cameras -->
     <string name="settings_blindspot_header">Сляпыя зоны</string>
     <string name="settings_blindspot_title">Камера па паваротніку</string>
@@ -1854,6 +1878,11 @@
     <string name="dispatch_volume_invalid">Некарэктны ўзровень гучнасці: %1$s</string>
     <string name="dispatch_package_missing">packageName не зададзены</string>
     <string name="dispatch_app_not_installed">Праграма не ўсталявана: %1$s</string>
+    <string name="dispatch_app_close_self">BYDMate не закрывае сам сябе</string>
+    <string name="dispatch_app_close_failed">Не ўдалося закрыць праграму: %1$s</string>
+    <string name="dispatch_media_no_session">Няма запушчанага плэера</string>
+    <string name="dispatch_media_key_invalid">Невядомая каманда плэера</string>
+    <string name="dispatch_media_key_failed">Плэер не прыняў каманду: %1$s</string>
     <string name="dispatch_phone_missing">phone не зададзены</string>
     <string name="dispatch_dgis_fallback">2ГІС не ўсталяваны, адкрыты Яндэкс Навігатар</string>
     <string name="dispatch_maps_fallback">Яндэкс Карты не ўсталяваны, адкрыты Яндэкс Навігатар</string>
@@ -1907,6 +1936,7 @@
     <string name="tg_report_trip_now">Паездка</string>
     <string name="tg_report_trip_last">Апошняя паездка</string>
     <string name="tg_report_trip_when">%1$s у %2$s</string>
+    <string name="tg_report_counter_since">з %1$s</string>
     <string name="tg_report_trip_distance_time">%1$s за %2$s</string>
     <string name="tg_report_trip_km">%1$.1f км</string>
     <string name="tg_report_trip_km_whole">%1$d км</string>
@@ -1940,6 +1970,8 @@
     <string name="tg_report_field_range_desc">Кіламетры, як на Галоўнай</string>
     <string name="tg_report_field_odometer_desc">Агульны прабег машыны</string>
     <string name="tg_report_field_trip_desc">Кіламетры, расход і час у дарозе</string>
+    <string name="tg_report_field_trip1_desc">Лічыльнік TRIP 1 з Галоўнай: кіламетры, час у дарозе і расход</string>
+    <string name="tg_report_field_trip2_desc">Лічыльнік TRIP 2 з Галоўнай: кіламетры, час у дарозе і расход</string>
     <string name="tg_report_field_temps_desc">Звонку і ў салоне</string>
     <string name="tg_report_field_openings_desc">Дзверы, вокны, люк, багажнік, капот</string>
     <string name="tg_report_field_tires_desc">Усе чатыры колы</string>

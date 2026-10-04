@@ -5,7 +5,9 @@ import com.bydmate.app.media.ClusterMusicCard.SessionSnapshot
 import com.bydmate.app.media.ClusterMusicCard.Target
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClusterMusicCardTest {
@@ -14,7 +16,9 @@ class ClusterMusicCardTest {
     private val stopped = 1
     private val paused = 2
     private val playing = 3
+    private val connecting = 8
     private val navi = "ru.yandex.yandexnavi"
+    private val vradio = "com.ilv.vradio"
 
     private fun shown(sessions: List<SessionSnapshot>): Card? = (ClusterMusicCard.decide(sessions) as? Target.Show)?.card
 
@@ -76,54 +80,80 @@ class ClusterMusicCardTest {
         assertEquals(Target.Idle, target)
     }
 
-    // Second review question: the FM tuner plays through com.byd.mediacenter without a playing
-    // session. The focus owner, not the paused Yandex session, decides.
-    @Test fun `fm radio holding focus hands off even when only yandex has a session state`() {
-        val target = ClusterMusicCard.decide(
-            listOf(
-                SessionSnapshot(navi, paused, "Song", "A"),
-                SessionSnapshot("com.byd.mediacenter", paused, "No songs", null),
-            ),
-            focusPackage = "com.byd.mediacenter",
+    // Whoever plays owns the card: a Navigator voice prompt takes audio focus, but Yandex Music's
+    // session keeps playing, so its card stays.
+    @Test fun `a navigator voice prompt over yandex music keeps the music card`() {
+        val card = shown(
+            listOf(SessionSnapshot(navi, null, null, null), SessionSnapshot("ru.yandex.music", playing, "Song", "A"))
         )
-        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), target)
+        assertEquals(Card("Song", "A", ClusterMusicCard.MUSIC_PLAYING), card)
     }
 
-    @Test fun `a non-source focus owner hands off without any session`() {
-        assertEquals(
-            Target.OtherPlaying("com.android.server.telecom"),
-            ClusterMusicCard.decide(listOf(SessionSnapshot(navi, playing, "Song", "A")), "com.android.server.telecom"),
+    @Test fun `a paused old session of another app does not replace the playing one`() {
+        val card = shown(
+            listOf(SessionSnapshot(navi, paused, "Old", "B"), SessionSnapshot("ru.yandex.music", playing, "Song", "A"))
         )
+        assertEquals(Card("Song", "A", ClusterMusicCard.MUSIC_PLAYING), card)
     }
 
-    @Test fun `yandex holding focus shows its own session only`() {
-        val card = (ClusterMusicCard.decide(
-            listOf(
-                SessionSnapshot("com.byd.mediacenter", paused, "No songs", null),
-                SessionSnapshot(navi, paused, "Song", "A"),
-            ),
-            focusPackage = navi,
-        ) as? Target.Show)?.card
-        assertEquals(Card("Song", "A", ClusterMusicCard.MUSIC_PAUSED), card)
+    @Test fun `the first playing session in priority order owns the card`() {
+        val music = SessionSnapshot("ru.yandex.music", playing, "Song", "A")
+        val stock = SessionSnapshot("com.byd.mediacenter", playing, "Other", "B")
+        assertEquals("Song", shown(listOf(music, stock))?.title)
+        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), ClusterMusicCard.decide(listOf(stock, music)))
     }
 
-    @Test fun `yandex holding focus without a titled session is idle`() {
-        assertEquals(
-            Target.Idle,
-            ClusterMusicCard.decide(listOf(SessionSnapshot("ru.yandex.music", playing, "Song", "A")), focusPackage = navi),
-        )
-    }
-
-    @Test fun `an empty or unknown focus owner falls back to the sessions`() {
+    @Test fun `the sessions alone decide the owner`() {
         val sessions = listOf(SessionSnapshot(navi, paused, "Old", "A"), SessionSnapshot("com.byd.mediacenter", playing, "Song", "B"))
-        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), ClusterMusicCard.decide(sessions, ""))
-        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), ClusterMusicCard.decide(sessions, null))
+        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), ClusterMusicCard.decide(sessions))
     }
 
     @Test fun `stopped or untitled sessions are idle`() {
         assertEquals(Target.Idle, ClusterMusicCard.decide(listOf(SessionSnapshot(navi, stopped, "Song", "A"))))
         assertEquals(Target.Idle, ClusterMusicCard.decide(listOf(SessionSnapshot(navi, playing, "  ", "A"))))
         assertEquals(Target.Idle, ClusterMusicCard.decide(listOf(SessionSnapshot(navi, playing, null, "A"))))
+    }
+
+    @Test fun `any app the stock controller leaves blank is a source`() {
+        assertTrue(ClusterMusicCard.isSource("com.spotify.music"))
+        assertTrue(ClusterMusicCard.isSource("com.ilv.vradio"))
+        assertTrue(ClusterMusicCard.isSource("ru.auto.music"))
+        assertTrue(ClusterMusicCard.isSource(navi))
+        assertFalse(ClusterMusicCard.isSource("com.byd.mediacenter"))
+        assertFalse(ClusterMusicCard.isSource("com.byd.someplayer"))
+        assertFalse(ClusterMusicCard.isSource("com.tencent.qqmusiccar"))
+        assertFalse(ClusterMusicCard.isSource("com.android.bluetooth"))
+    }
+
+    @Test fun `a playing spotify session becomes a card owned by spotify`() {
+        val target = ClusterMusicCard.decide(listOf(SessionSnapshot("com.spotify.music", playing, "Song", "A")))
+        assertEquals(Target.Show(Card("Song", "A", ClusterMusicCard.MUSIC_PLAYING), "com.spotify.music"), target)
+    }
+
+    // #96: VRadio dropped out of "playing" every few seconds and a paused Yandex Music took the
+    // card back each time, so the card flipped between the two.
+    @Test fun `the last owner keeps the card while it rebuffers instead of an older paused session`() {
+        val yandex = SessionSnapshot("ru.yandex.music", paused, "Old", "A")
+        val radio = SessionSnapshot(vradio, connecting, "Station", "Host")
+        val target = ClusterMusicCard.decide(listOf(yandex, radio), lastOwner = vradio)
+        assertEquals(Target.Show(Card("Station", "Host", ClusterMusicCard.MUSIC_PAUSED), vradio), target)
+    }
+
+    @Test fun `a last owner whose session is gone gives way to the first paused one`() {
+        val yandex = SessionSnapshot("ru.yandex.music", paused, "Old", "A")
+        assertEquals("Old", (ClusterMusicCard.decide(listOf(yandex), lastOwner = vradio) as? Target.Show)?.card?.title)
+    }
+
+    @Test fun `a paused stock last owner keeps an older paused source off the card`() {
+        val sessions = listOf(SessionSnapshot("ru.yandex.music", paused, "Old", "A"), SessionSnapshot("com.android.bluetooth", paused, "BT", null))
+        assertEquals(Target.Idle, ClusterMusicCard.decide(sessions, lastOwner = "com.android.bluetooth"))
+    }
+
+    @Test fun `a playing session beats the last owner`() {
+        val sessions = listOf(SessionSnapshot(vradio, paused, "Station", null), SessionSnapshot("ru.yandex.music", playing, "Song", "A"))
+        assertEquals("Song", (ClusterMusicCard.decide(sessions, lastOwner = vradio) as? Target.Show)?.card?.title)
+        val stock = listOf(SessionSnapshot(vradio, paused, "Station", null), SessionSnapshot("com.byd.mediacenter", playing, "S", null))
+        assertEquals(Target.OtherPlaying("com.byd.mediacenter"), ClusterMusicCard.decide(stock, lastOwner = vradio))
     }
 
     @Test fun `encode is utf-16le without bom`() {
